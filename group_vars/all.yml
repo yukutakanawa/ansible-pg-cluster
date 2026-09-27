@@ -1,42 +1,120 @@
-# Имя кластера
+# ИМЯ КЛАСТЕРА
 cluster_name: pg-cluster
+# ↑ Уникальное имя кластера PostgreSQL/Patroni. Используется как scope в etcd,
+#   чтобы узлы кластера находили друг друга. Должно быть одинаковым на всех нодах.
 
-# Состав кластера
+# СОСТАВ КЛАСТЕРА
 etcd_nodes: ["192.168.100.10:2379", "192.168.100.11:2379", "192.168.100.20:2379"]
-etcd_initial_cluster: ["Ubuntu=http://192.168.100.10:2380", "localhost.localdomain=http://192.168.100.20:2380", "Debian=http://192.168.100.11:2380"]
+# ↑ Список адресов etcd-узлов (клиентский порт 2379), которые Patroni использует
+#   как DCS (Distributed Configuration Store) для хранения состояния кластера
+#   и выборов лидера.
+
+etcd_initial_cluster: ["ubuntu=http://192.168.100.10:2380", "rocky=http://192.168.100.20:2380", "debian=http://192.168.100.11:2380"]
+# ↑ Начальный состав etcd-кластера в формате "имя=http://IP:2380" (peer-порт).
+#   Указывает имена узлов и их адреса для синхронизации между членами etcd.
+#   Используется при первичной инициализации кластера etcd.
+
 cluster_nodes: [192.168.100.10, 192.168.100.11, 192.168.100.20]
+# ↑ Список IP-адресов всех узлов PostgreSQL-кластера (без портов).
+#   Используется Ansible для применения ролей Patroni/PostgreSQL ко всем нодам.
 
-# Порты
+# ПОРТЫ
 etcd_client_port: 2379
+# ↑ Порт etcd для клиентских подключений (Patroni подключается сюда).
+
 etcd_peer_port: 2380
+# ↑ Порт etcd для обмена данными между членами etcd-кластера (peer-to-peer).
+
 postgresql_port: 5432
+# ↑ Стандартный порт PostgreSQL для приёма клиентских подключений.
+
 patroni_restapi_port: 8008
+# ↑ Порт REST API Patroni. Через него можно узнать состояние кластера,
+#   выполнить switchover/failover, а также он используется для health-check.
 
-# PostgreSQL
+# POSTGRESQL
 postgresql_version: 16
+# ↑ Версия PostgreSQL, которая будет установлена и настроена.
+
 postgresql_user: postgres
+# ↑ Системный пользователь ОС, от имени которого работает PostgreSQL.
+
 postgresql_group: postgres
+# ↑ Системная группа ОС для PostgreSQL.
+
 replication_user: replicator
+# ↑ Имя пользователя БД для репликации между primary и replica.
+
 replication_password: "CHANGE_ME"
+# ↑ Пароль пользователя репликации. ОБЯЗАТЕЛЬНО заменить на надёжный!
+
 superuser_name: postgres
+# ↑ Имя суперпользователя PostgreSQL (по умолчанию — postgres).
+
 superuser_password: "CHANGE_ME"
+# ↑ Пароль суперпользователя. ОБЯЗАТЕЛЬНО заменить на надёжный!
 
-# Patroni
+# PATRONI
 patroni_scope: "{{ cluster_name }}"
-patroni_namespace: "/service/"
-patroni_ttl: 30
-patroni_loop_wait: 10
-patroni_retry_timeout: 10
-patroni_maximum_lag_on_failover: 1048576
-patroni_synchronous_mode: false
-patroni_config_dir: /etc/patroni
+# ↑ Scope Patroni — обычно совпадает с именем кластера. Это "ключ" в etcd,
+#   по которому узлы объединяются в один кластер.
 
-# Параметры PostgreSQL для Patroni
+patroni_namespace: "/service/"
+# ↑ Префикс в etcd, под которым Patroni хранит свои ключи (leader, members и т.д.).
+
+patroni_ttl: 30
+# ↑ TTL (в секундах) для ключа лидера в etcd. Если лидер не обновит ключ
+#   за это время, произойдёт failover. Меньше — быстрее реакция, но выше
+#   риск ложных переключений при сетевых задержках.
+
+patroni_loop_wait: 10
+# ↑ Интервал (в секундах) основного цикла Patroni: проверка состояния,
+#   обновление ключа лидера, мониторинг репликации.
+
+patroni_retry_timeout: 10
+# ↑ Таймаут (в секундах) на операции с DCS. Если etcd не отвечает дольше —
+#   операция считается неудачной.
+
+patroni_maximum_lag_on_failover: 1048576
+# ↑ Максимальное отставание реплики (в байтах) от primary, при котором
+#   она ещё может быть выбрана новым лидером. 1048576 = 1 МБ.
+
+patroni_synchronous_mode: false
+# ↑ Режим синхронной репликации. false = асинхронная (быстрее, но возможна
+#   потеря последних транзакций при failover). true = синхронная (надёжнее,
+#   но медленнее).
+
+patroni_config_dir: /etc/patroni
+# ↑ Каталог, где будет размещён конфигурационный файл Patroni (patroni.yml).
+
+# ПАРАМЕТРЫ POSTGRESQL ДЛЯ PATRONI
 wal_level: replica
+# ↑ Уровень WAL. "replica" включает всё необходимое для репликации
+#   (достаточно для streaming replication).
+
 max_wal_senders: 10
+# ↑ Максимальное число параллельных процессов отправки WAL на реплики.
+#   Должно быть >= числа реплик.
+
 max_replication_slots: 10
+# ↑ Максимальное число слотов репликации. Patroni создаёт по слоту на каждую
+#   реплику, чтобы не терять WAL при отключении реплики.
+
 hot_standby: "on"
+# ↑ Разрешает выполнять read-only запросы на репликах (горячий резерв).
+
 wal_keep_size: 512MB
+# ↑ Сколько WAL (в мегабайтах/гигабайтах) PostgreSQL хранит дополнительно
+#   для реплик, которые временно отключились (резервный механизм, если слоты
+#   не используются).
+
 listen_addresses: "*"
+# ↑ Слушать подключения на всех сетевых интерфейсах. Нужно для работы
+#   репликации и внешних клиентов.
+
 password_encryption: scram-sha-256
+# ↑ Алгоритм хеширования паролей. SCRAM-SHA-256 — современный и безопасный
+#   (рекомендуется вместо md5).
+
 unix_socket_directories: "/var/run/postgresql"
+# ↑ Каталог для Unix-сокетов PostgreSQL (локальные подключения без TCP).
