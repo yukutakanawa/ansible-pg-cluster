@@ -1,9 +1,16 @@
-ansible_host: 192.168.100.10
-ansible_user: takanawa-yuku
-node_name: ubuntu
-etcd_name: "{{ node_name }}"
-etcd_ip: 192.168.100.10
-etcd_peer_url: "http://{{ etcd_ip }}:{{ etcd_peer_port }}"
-etcd_client_url: "http://{{ etcd_ip }}:{{ etcd_client_port }}"
-postgresql_ip: 192.168.100.10
-patroni_restapi_ip: 192.168.100.10
+# === Параметры подключения Ansible ===
+ansible_host: 192.168.100.10          # IP-адрес управляемого хоста
+ansible_user: takanawa-yuku           # Пользователь для SSH-подключения
+
+# === Идентификация узла ===
+node_name: ubuntu                     # Имя узла (используется для etcd_name)
+etcd_name: "{{ node_name }}"          # Имя узла etcd (совпадает с node_name)
+etcd_ip: 192.168.100.10               # IP-адрес etcd
+
+# === URL-адреса etcd ===
+etcd_peer_url: "http://{{ etcd_ip }}:{{ etcd_peer_port }}"       # URL для обмена между узлами etcd (peer-to-peer)
+etcd_client_url: "http://{{ etcd_ip }}:{{ etcd_client_port }}"   # URL для клиентских подключений к etcd
+
+# === Параметры PostgreSQL и Patroni ===
+postgresql_ip: 192.168.100.10         # IP-адрес PostgreSQL
+patroni_restapi_ip: 192.168.100.10    # IP-адрес REST API Patroni
