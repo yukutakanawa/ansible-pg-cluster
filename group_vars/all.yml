@@ -1,0 +1,42 @@
+# Имя кластера
+cluster_name: pg-cluster
+
+# Состав кластера
+etcd_nodes: ["192.168.100.10:2379", "192.168.100.11:2379", "192.168.100.20:2379"]
+etcd_initial_cluster: ["Ubuntu=http://192.168.100.10:2380", "localhost.localdomain=http://192.168.100.20:2380", "Debian=http://192.168.100.11:2380"]
+cluster_nodes: [192.168.100.10, 192.168.100.11, 192.168.100.20]
+
+# Порты
+etcd_client_port: 2379
+etcd_peer_port: 2380
+postgresql_port: 5432
+patroni_restapi_port: 8008
+
+# PostgreSQL
+postgresql_version: 16
+postgresql_user: postgres
+postgresql_group: postgres
+replication_user: replicator
+replication_password: "CHANGE_ME"
+superuser_name: postgres
+superuser_password: "CHANGE_ME"
+
+# Patroni
+patroni_scope: "{{ cluster_name }}"
+patroni_namespace: "/service/"
+patroni_ttl: 30
+patroni_loop_wait: 10
+patroni_retry_timeout: 10
+patroni_maximum_lag_on_failover: 1048576
+patroni_synchronous_mode: false
+patroni_config_dir: /etc/patroni
+
+# Параметры PostgreSQL для Patroni
+wal_level: replica
+max_wal_senders: 10
+max_replication_slots: 10
+hot_standby: "on"
+wal_keep_size: 512MB
+listen_addresses: "*"
+password_encryption: scram-sha-256
+unix_socket_directories: "/var/run/postgresql"
