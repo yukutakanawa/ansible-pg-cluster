@@ -1,0 +1,12 @@
+etcd_version: 3.5.15
+etcd_download_url: https://github.com/etcd-io/etcd/releases/download/v3.5.15/etcd-v3.5.15-linux-amd64.tar.gz
+etcd_systemd_service: etcd
+etcd_data_dir: /var/lib/etcd
+etcd_user: etcd
+etcd_group: etcd
+etcd_cluster_token:
+etcd_initial_cluster_state: new
+etcd_config_dir: /etc/etcd
+etcd_config_file: /etc/etcd/etcd.conf.yml
+etcd_binary: /usr/local/bin/etcd
+etcd_log_level: info
