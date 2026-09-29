@@ -1,0 +1,36 @@
+# === Имя systemd-сервиса etcd ===
+# Используется в задачах: systemctl start/stop/enable/status etcd
+etcd_systemd_service: etcd
+
+# === Путь к unit-файлу systemd ===
+# Сюда будет записан шаблон etcd.service из роли
+# После изменения требуется: systemctl daemon-reload
+etcd_systemd_unit_file: /etc/systemd/system/etcd.service
+
+# === Каталог данных etcd ===
+# Здесь etcd хранит своё состояние: WAL-логи, снапшоты, members/
+# Важно: должен быть на быстром диске (SSD), с достаточным IOPS
+etcd_data_dir: /var/lib/etcd
+
+# === Системный пользователь etcd ===
+# От его имени запускается процесс etcd (не root!)
+# Создаётся задачей user: name=etcd system=yes shell=/sbin/nologin
+etcd_user: etcd
+
+# === Системная группа etcd ===
+# Группа-владелец каталогов /var/lib/etcd и /etc/etcd
+etcd_group: etcd
+
+# === Каталог конфигурации etcd ===
+# Здесь лежит файл конфигурации etcd.conf.yml
+etcd_config_dir: /etc/etcd
+
+# === Файл конфигурации etcd (YAML-формат) ===
+# Передаётся etcd через флаг: --config-file /etc/etcd/etcd.conf.yml
+# Альтернатива — передавать параметры флагами в ExecStart
+etcd_config_file: /etc/etcd/etcd.conf.yml
+
+# === Путь к бинарнику etcd ===
+# /usr/local/bin — типичное место, если etcd ставился из tar.gz
+# При установке через пакет (apt/yum) путь обычно /usr/bin/etcd
+etcd_binary: /usr/local/bin/etcd
