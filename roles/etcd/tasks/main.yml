@@ -1,23 +1,40 @@
 ---
+# Плейбук: настройка окружения и установка etcd
+# Выполняется с повышением привилегий (become: true) для всего блока
 - name: "Настройка окружения и установка etcd"
   become: true
   block:
+
+    # ============================================================
+    # 1. СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ И ГРУППЫ etcd
+    # ============================================================
     - name: "Создание группы etcd"
+      # Создаёт системную группу etcd (GID < 1000, без пароля)
+      # system: yes — группа для сервисов, а не для людей
       ansible.builtin.group:
         name: "{{ etcd_group }}"
         state: present
         system: yes
-      
+
     - name: "Создание пользователя etcd (системного)"
+      # Системный пользователь без интерактивного входа
+      # shell nologin — запрет входа в систему
+      # home = etcd_data_dir — совпадает с каталогом данных
+      # create_home: no — каталог создаётся отдельной задачей ниже
       ansible.builtin.user:
         name: "{{ etcd_user }}"
         shell: "/usr/sbin/nologin"
         system: yes
         home: "{{ etcd_data_dir }}"
         create_home: no
-        group: "{{ etcd_group }}"    
+        group: "{{ etcd_group }}"
 
+    # ============================================================
+    # 2. СКАЧИВАНИЕ И РАСПАКОВКА БИНАРНИКОВ etcd
+    # ============================================================
     - name: "Скачивание архива с etcd"
+      # force: no — не перекачивать, если файл уже есть (идемпотентность)
+      # mode 0644 — архив не секретный, читается всеми
       ansible.builtin.get_url:
         url: "{{ etcd_download_url }}"
         mode: "0644"
@@ -25,12 +42,18 @@
         force: no
 
     - name: "Распаковка архива"
+      # remote_src: yes — архив уже лежит на удалённом хосте (не на control node)
+      # dest /tmp/etcd-extract — временный каталог для распаковки
       ansible.builtin.unarchive:
         src: /tmp/etcd-{{ etcd_version }}-linux-{{ etcd_arch }}.tar.gz
         dest: /tmp/etcd-extract
         remote_src: yes
 
     - name: "Скопировать бинарники в /usr/local/bin"
+      # Копируются только etcd и etcdctl
+      # etcdutl (для snapshot/defrag в 3.5+) не копируется — при необходимости добавить
+      # mode 0755 — исполняемые файлы
+      # owner/group root — бинарники не должны изменяться пользователем etcd
       ansible.builtin.copy:
         src: "/tmp/etcd-extract/etcd-v{{ etcd_version }}-linux-{{ etcd_arch }}/{{ item }}"
         dest: "{{ etcd_binary }}/{{ item }}"
@@ -42,7 +65,12 @@
         - "etcd"
         - "etcdctl"
 
+    # ============================================================
+    # 3. СОЗДАНИЕ КАТАЛОГОВ КОНФИГУРАЦИИ И ДАННЫХ
+    # ============================================================
     - name: "Создать директорию конфигов /etc/etcd"
+      # owner root / group etcd — конфиг читает только root, но группа имеет доступ
+      # mode 0750 — владелец rwx, группа r-x, остальные без доступа
       ansible.builtin.file:
         state: directory
         path: "{{ etcd_config_dir }}"
@@ -51,14 +79,22 @@
         mode: "0750"
 
     - name: "Создать data-dir /var/lib/etcd"
+      # owner etcd — процесс etcd работает от этого пользователя
+      # mode 0700 — данные кластера строго конфиденциальны
       ansible.builtin.file:
         state: directory
         path: "{{ etcd_data_dir }}"
         owner: "{{ etcd_user }}"
         group: "{{ etcd_group }}"
-        mode: "0700" 
+        mode: "0700"
 
+    # ============================================================
+    # 4. ГЕНЕРАЦИЯ КОНФИГА И SYSTEMD-ЮНИТА
+    # ============================================================
     - name: "Сгенерировать конфиг /etc/etcd/etcd.conf.yml"
+      # Шаблон конфига etcd в YAML-формате (актуален для 3.4+)
+      # mode 0640 — root читает/пишет, группа etcd читает
+      # notify Restart etcd — перезапуск при изменении конфига
       ansible.builtin.template:
         src: etcd.conf.yml.j2
         dest: "{{ etcd_config_file }}"
@@ -68,28 +104,40 @@
       notify: Restart etcd
 
     - name: "Сгенерировать systemd-юнит /etc/systemd/system/etcd.service"
+      # mode 0644 — unit-файлы читаются всеми, пишет только root
+      # notify двух handler'ов: сначала Reload systemd, потом Restart etcd
       ansible.builtin.template:
         src: etcd.service.j2
         dest: "{{ etcd_systemd_unit_file }}"
         owner: root
         group: root
         mode: "0644"
-      notify: 
+      notify:
         - Reload systemd
         - Restart etcd
-        
+
+    # ============================================================
+    # 5. ЗАПУСК И ВКЛЮЧЕНИЕ СЕРВИСА
+    # ============================================================
     - name: "Запустить и enable сервис"
+      # state: started — запустить сейчас
+      # enable: yes — автозапуск при загрузке системы
+      # daemon-reload: yes — на случай, если handler ещё не отработал
       ansible.builtin.systemd:
         name: "{{ etcd_systemd_service }}"
         state: started
         enable: yes
         daemon-reload: yes
 
+    # ============================================================
+    # 6. ОЧИСТКА ВРЕМЕННЫХ ФАЙЛОВ
+    # ============================================================
     - name: "Удаление файлов"
+      # Удаляем скачанный архив и распакованный каталог
+      # чтобы не засорять /tmp и не хранить лишние копии бинарников
       ansible.builtin.file:
         path: "{{ item }}"
         state: absent
       loop:
         - /tmp/etcd-{{ etcd_version }}-linux-{{ etcd_arch }}.tar.gz
         - /tmp/etcd-extract
-      
