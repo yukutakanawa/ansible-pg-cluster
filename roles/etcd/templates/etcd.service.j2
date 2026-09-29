@@ -1,0 +1,48 @@
+[Unit]
+# Описание сервиса — отображается в systemctl status и journalctl
+Description=Сервис etcd
+
+# Запускать после поднятия сети
+# etcd слушает порты 2379/2380, поэтому сеть должна быть готова
+After=network.target
+
+
+[Service]
+# Type=exec — systemd считает сервис запущенным после успешного exec()
+# (современная альтернатива Type=simple; etcd при этом не уведомляет systemd
+#  о готовности через sd_notify, поэтому NotifyAccess/Type=notify не используются)
+Type=exec
+
+# Пользователь и группа, от имени которых работает процесс etcd
+# Не root — снижает риск компрометации
+User={{ etcd_user }}
+Group={{ etcd_group }}
+
+# Команда запуска etcd с внешним конфигом YAML
+# Бинарник берётся из etcd_bin_dir, конфиг — из etcd_config_file
+ExecStart={{ etcd_bin_dir }}/etcd --config-file={{ etcd_config_file }}
+
+# Перезапуск только при аварийном завершении
+# (не при чистого exit 0 — например, при штатной остановке)
+Restart=on-failure
+
+# Задержка перед перезапуском — 5 секунд
+# Даёт время другим узлам кластера заметить падение и избежать flapping
+RestartSec=5
+
+# Лимит открытых файловых дескрипторов
+# etcd держит много соединений с peer'ами и клиентами; 65536 — рекомендуемое значение
+LimitNOFILE=65536
+
+# Отключение таймаута запуска
+# etcd при bootstrap может стартовать долго; 0 = ждать бесконечно
+TimeoutStartSec=0
+
+# Рабочий каталог процесса = data-dir etcd
+# Полезно для отладки и относительных путей
+WorkingDirectory={{ etcd_data_dir }}
+
+
+[Install]
+# Включать сервис при старте системы (multi-user.target = обычная загрузка)
+WantedBy=multi-user.target
