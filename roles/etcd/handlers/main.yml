@@ -1,7 +1,20 @@
+# Обработчики (handlers) роли etcd
+# Вызываются через notify из задач при изменении конфигов/юнитов
+# Порядок выполнения — порядок ОБЪЯВЛЕНИЯ здесь, а не порядок notify в задачах
+# (важно: Reload systemd должен идти ПЕРЕД Restart etcd, чтобы systemd
+#  подхватил обновлённый unit-файл до перезапуска сервиса)
+
+# Перечитать конфигурацию systemd
+# Нужно после изменения/создания unit-файлов в /etc/systemd/system/
+# Без этого systemd продолжит использовать старую версию юнита
 - name: Reload systemd
   systemd:
     daemon_reload: yes
 
+# Перезапустить сервис etcd
+# state: restarted — остановить и запустить заново (не reload!)
+# Для etcd reload невозможен: изменения в конфиге (peer-urls, cluster-token
+# и т.д.) требуют полного перезапуска процесса
 - name: Restart etcd
   systemd:
     name: "{{ etcd_systemd_service }}"
