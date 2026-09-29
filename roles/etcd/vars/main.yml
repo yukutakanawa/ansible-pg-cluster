@@ -33,4 +33,4 @@ etcd_config_file: /etc/etcd/etcd.conf.yml
 # === Путь к бинарнику etcd ===
 # /usr/local/bin — типичное место, если etcd ставился из tar.gz
 # При установке через пакет (apt/yum) путь обычно /usr/bin/etcd
-etcd_binary: /usr/local/bin/etcd
+etcd_binary: /usr/local/bin
