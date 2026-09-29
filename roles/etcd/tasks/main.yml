@@ -56,7 +56,7 @@
       # owner/group root — бинарники не должны изменяться пользователем etcd
       ansible.builtin.copy:
         src: "/tmp/etcd-extract/etcd-v{{ etcd_version }}-linux-{{ etcd_arch }}/{{ item }}"
-        dest: "{{ etcd_binary }}/{{ item }}"
+        dest: "{{ etcd_bin_dir }}/{{ item }}"
         mode: "0755"
         owner: root
         group: root
