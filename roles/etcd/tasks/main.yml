@@ -105,7 +105,7 @@
         src: etcd.conf.yml.j2
         dest: "{{ etcd_config_file }}"
         owner: root
-        group: root
+        group: etcd
         mode: "0640"
       notify: Restart etcd
 
@@ -116,7 +116,6 @@
         src: etcd.service.j2
         dest: "{{ etcd_systemd_unit_file }}"
         owner: root
-        group: root
         mode: "0644"
       notify:
         - Reload systemd
