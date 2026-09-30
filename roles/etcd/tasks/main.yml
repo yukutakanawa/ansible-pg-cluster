@@ -4,7 +4,6 @@
 - name: "Настройка окружения и установка etcd"
   become: true
   block:
-
     # ============================================================
     # 1. СОЗДАНИЕ ПОЛЬЗОВАТЕЛЯ И ГРУППЫ etcd
     # ============================================================
@@ -40,6 +39,13 @@
         mode: "0644"
         dest: /tmp/etcd-{{ etcd_version }}-linux-{{ etcd_arch }}.tar.gz
         force: no
+
+    # ansible.builtin.unarchive: вот эта штука автоматически не создает каталоги нужно перед этим создавать
+    - name: "Создание каталога для распаковки"
+      ansible.legacy.file:
+        path: /tmp/etcd-extract
+        state: directory
+        mode: "0755"
 
     - name: "Распаковка архива"
       # remote_src: yes — архив уже лежит на удалённом хосте (не на control node)
