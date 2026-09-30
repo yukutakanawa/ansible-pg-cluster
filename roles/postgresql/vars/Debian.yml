@@ -1,0 +1,56 @@
+# ============================================================
+# Переменные роли PostgreSQL (Debian/Ubuntu, PGDG-репозиторий)
+# ============================================================
+
+# Имя пакета PostgreSQL (метапакет, тянет сервер и зависимости)
+# Из PGDG-репозитория: postgresql-16
+# Из репозитория Debian/Ubuntu: postgresql-16 (в Debian 12 — postgresql-15)
+pg_package_name: postgresql-16
+
+# Каталог данных кластера
+# Здесь лежат: base/, global/, pg_wal/, postgresql.conf, pg_hba.conf
+# Путь формируется как /var/lib/postgresql/<major>/<cluster>
+# "main" — имя кластера по умолчанию при установке из PGDG
+# На этом каталоге критично иметь корректные права (postgres:postgres, 0700)
+pg_data_dir: /var/lib/postgresql/16/main
+
+# Каталог конфигурации кластера
+# Здесь Debian/Ubuntu-пакеты размещают postgresql.conf, pg_hba.conf,
+# pg_ident.conf (вместо data-dir, как в upstream-сборке)
+# На этот путь указывает data_directory + config_file в postgresql.conf
+pg_config_dir: /etc/postgresql/16/main
+
+# Каталог с бинарниками PostgreSQL
+# Здесь находятся: postgres, initdb, pg_ctl, pg_basebackup, psql и т.д.
+# В Debian/Ubuntu бинарники НЕ в /usr/bin, а в /usr/lib/postgresql/<ver>/bin
+# чтобы можно было держать несколько мажорных версий одновременно
+pg_bin_dir: /usr/lib/postgresql/16/bin
+
+# Имя systemd-сервиса PostgreSQL
+# В Debian/Ubuntu — обёртка postgresql.service, которая запускает все кластеры
+# В upstream-сборке — postgresql-16.service (один сервис = один кластер)
+pg_service_name: postgresql
+
+# Путь к файлу pg_hba.conf
+# Host-Based Authentication — управляет доступом клиентов к БД
+# Должно быть: /etc/postgresql/16/main/pg_hba.conf
+pg_hba_conf: /etc/postgresql/16/main/pg_hda.conf
+
+# Пакет postgresql-common
+# Содержит утилиты Debian/Ubuntu: pg_ctlcluster, pg_createcluster,
+# pg_lsclusters, pg_dropcluster и скрипты поддержки мультикластерности
+# Устанавливается как зависимость postgresql-16, но полезно указать явно
+pg_common_package: postgresql-common
+
+# Пакет postgresql-contrib-16
+# Содержит дополнительные расширения: pg_stat_statements, pgcrypto,
+# hstore, uuid-ossp, pg_trgm, dblink и др.
+# В Debian/Ubuntu имя пакета: postgresql-contrib (без версии),
+# либо postgresql-contrib-16 из PGDG
+pg_contrib_package: postgresql-contrib-16
+
+# Python-драйвер для PostgreSQL (psycopg2)
+# Нужен Ansible-модулям community.postgresql.* и Patroni (для callback)
+# В Debian/Ubuntu имя: python3-psycopg2 (для системного Python 3)
+# Для venv Patroni — ставится через pip: psycopg2-binary
+pg_python_package: python3-psycopg2

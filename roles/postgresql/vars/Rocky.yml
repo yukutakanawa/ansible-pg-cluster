@@ -1,0 +1,47 @@
+# ============================================================
+# Переменные роли PostgreSQL (RHEL/Rocky/Alma 9, PGDG-репозиторий)
+# ============================================================
+
+# Имя пакета PostgreSQL-сервера
+# В PGDG для RHEL-семейства: postgresql16-server (без дефиса между именем и версией!)
+# Отличие от Debian/Ubuntu: там postgresql-16, здесь postgresql16-server
+pg_package_name: postgresql16-server
+
+# Каталог данных кластера
+# В RHEL/PGDG путь единый: /var/lib/pgsql/<major>/data
+# Здесь лежат base/, global/, pg_wal/, postgresql.conf, pg_hba.conf
+# Права: postgres:postgres, 0700
+pg_data_dir: /var/lib/pgsql/16/data
+
+# Каталог конфигурации кластера
+# В RHEL/PGDG совпадает с data-dir (нет отдельного /etc/postgresql)
+# postgresql.conf, pg_hba.conf, pg_ident.conf лежат прямо в data/
+pg_config_dir: /var/lib/pgsql/16/data
+
+# Каталог с бинарниками PostgreSQL
+# В RHEL/PGDG: /usr/pgsql-<major>/bin
+# (аналог Debian-овского /usr/lib/postgresql/<major>/bin)
+# Содержит postgres, initdb, pg_ctl, pg_basebackup, psql и т.д.
+pg_bin_dir: /usr/pgsql-16/bin
+
+# Имя systemd-сервиса
+# В PGDG для RHEL: postgresql-16.service (дефис, не подчёркивание)
+# Это НЕ обёртка, как в Debian — один сервис = один кластер
+# Для Patroni этот сервис отключается (Patroni управляет postgres сам)
+pg_service_name: postgresql-16
+
+# URL RPM-пакета репозитория PGDG для EL 9 (x86_64)
+# Устанавливается через dnf install <URL>
+# После установки репозиторий доступен как pgdg-redhat-all
+pg_pgdg_repo_rpm: https://download.postgresql.org/pub/repos/yum/reporpms/EL-9-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+
+# Пакет с расширениями (contrib)
+# В PGDG для RHEL: postgresql16-contrib (без дефиса после postgresql)
+# Содержит: pg_stat_statements, pgcrypto, hstore, uuid-ossp, pg_trgm, dblink
+pg_contrib_package: postgresql16-contrib
+
+# Python-драйвер psycopg2 для системного Python 3
+# Нужен Ansible-модулям community.postgresql.* и Patroni
+# В RHEL 9: python3-psycopg2 из BaseOS/AppStream
+# Для venv Patroni — ставится через pip: psycopg2-binary
+pg_python_package: python3-psycopg2
