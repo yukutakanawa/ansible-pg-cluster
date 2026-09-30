@@ -132,7 +132,7 @@
       ansible.builtin.systemd:
         name: "{{ etcd_systemd_service }}"
         state: started
-        enable: yes
+        enabled: yes
         daemon-reload: yes
 
     # ============================================================
