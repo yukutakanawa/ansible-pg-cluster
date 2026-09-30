@@ -1,0 +1,5 @@
+---
+- name: Установка etcd cluster
+  hosts: etcd
+  roles:
+    - etcd
