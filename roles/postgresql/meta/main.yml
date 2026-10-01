@@ -1,0 +1,29 @@
+galaxy_info:
+  author: Nick Solodilov
+  description: Установка PostgreSQL для кластера Patroni без запуска сервиса
+  license: MIT
+  min_ansible_version: "2.21"
+  platforms:
+    # Debian 12 (bookworm) — стабильный LTS-релиз
+    - name: Debian
+      versions:
+        - bookworm
+
+    # Ubuntu 22.04 LTS (jammy) и 24.04 LTS (noble) — LTS-релизы
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+
+    # Enterprise Linux 9 (RHEL 9, Rocky Linux 9, AlmaLinux 9)
+    # "9" в кавычках — чтобы YAML не превратил в число
+    - name: EL
+      versions:
+        - "9"
+
+  galaxy_tags:
+    - postgres
+    - database
+    - cluster
+
+dependencies: []
