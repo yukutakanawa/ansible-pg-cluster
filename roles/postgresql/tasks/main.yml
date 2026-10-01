@@ -1,0 +1,110 @@
+---
+# ============================================================
+# Плейбук: подготовка окружения PostgreSQL (без запуска сервиса)
+# ============================================================
+# Ставит пакеты PostgreSQL, подключает PGDG-репозиторий,
+# готовит data-dir и pg_hba.conf, но НЕ запускает сервис —
+# запуском будет управлять Patroni.
+
+- name: "Настройка окружения PostgreSQL без запуска"
+  become: true
+  block:
+    # Подключение переменных, специфичных для семейства ОС
+    # Файлы vars/Debian.yml и vars/RedHat.yml содержат
+    # pg_package_name, pg_data_dir, pg_config_dir, pg_bin_dir и т.д.
+    - name: "Загрузить переменные по ОС"
+      ansible.builtin.include_vars:
+        file: "{{ ansible_facts['os_family'] }}.yml"
+      when: ansible_facts['os_family'] in ['Debian', 'RedHat']
+
+    # На Debian/Ubuntu скрипт apt.postgresql.org.sh входит в пакет
+    # postgresql-common. Его нужно поставить из штатного репозитория
+    # до подключения PGDG.
+    - name: "Debian: установка postgresql-common для скрипта"
+      ansible.builtin.apt:
+        name: "{{ pg_common_package }}"
+        state: present
+      when: ansible_facts['os_family'] == "Debian"
+
+    # Официальный скрипт PGDG: добавляет репозиторий в
+    # /etc/apt/sources.list.d/pgdg.list и импортирует GPG-ключ.
+    # creates — идемпотентность: если файл уже есть, задача пропускается.
+    - name: "Debian: запуск скрипта"
+      ansible.builtin.shell:
+        cmd: "/usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y"
+        creates: /etc/apt/sources.list.d/pgdg.list
+      when: ansible_facts['os_family'] == "Debian"
+
+    # На RHEL/Rocky/Alma 9 ставим RPM-пакет репозитория PGDG прямо из URL
+    # через dnf. После этого становятся доступны postgresql16-* пакеты.
+    - name: "RedHat: Добавить официальный репозиторий PGDG (RPM)"
+      ansible.builtin.dnf:
+        name: "{{ pg_pgdg_repo_rpm }}"
+        state: present
+      when: ansible_facts['os_family'] == "RedHat"
+
+    # Установка сервера PostgreSQL, contrib-расширений и psycopg2
+    # (psycopg2 нужен Ansible-модулям community.postgresql и Patroni).
+    # update_cache — обновить индекс apt перед установкой.
+    - name: "Установка пакетов Debian"
+      ansible.builtin.apt:
+        name:
+          - "{{ pg_package_name }}"
+          - "{{ pg_contrib_package }}"
+          - "{{ pg_python_package }}"
+        state: present
+        update_cache: yes
+      when: ansible_facts['os_family'] == "Debian"
+
+    # То же самое для RHEL-семейства.
+    # update_cache — обновить метаданные dnf.
+    - name: "Установка пакетов RedHat"
+      ansible.builtin.dnf:
+        name:
+          - "{{ pg_package_name }}"
+          - "{{ pg_contrib_package }}"
+          - "{{ pg_python_package }}"
+        state: present
+        update_cache: yes
+      when: ansible_facts['os_family'] == "RedHat"
+
+    # Останавливаем и убираем из автозапуска системный сервис PostgreSQL.
+    # Критично для Patroni: он сам управляет процессом postgres через
+    # pg_ctl, а параллельный systemd-сервис приведёт к конфликту.
+    - name: "Остановить и отключить systemd-сервис"
+      ansible.builtin.systemd:
+        name: "{{ pg_service_name }}"
+        state: stopped
+        enabled: false
+
+    # На Debian/Ubuntu установка пакета postgresql-16 автоматически
+    # создаёт кластер main через pg_createcluster.
+    # Patroni требует "чистый" data-dir, который он сам проинициализирует
+    # через initdb. Поэтому автосозданный кластер удаляем.
+    - name: "Удаление автоматического созданного кластера для Patroni на Debian"
+      ansible.builtin.command:
+        cmd: "pg_dropcluster --stop {{ postgresql_version }} main"
+        creates: "{{ pg_config_dir }}"
+      when: ansible_facts['os_family'] == "Debian"
+
+    # Создаём каталог данных, в который Patroni при bootstrap
+    # выполнит initdb. Владелец postgres:postgres, права 0700.
+    - name: "Создать data-dir"
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}"
+        state: directory
+        owner: "{{ postgresql_user }}"
+        group: "{{ postgresql_group }}"
+        mode: "0700"
+
+    # Раскладываем pg_hba.conf по шаблону.
+    # Правила: local trust для postgres, host-доступ для Patroni REST API,
+    # host replication для стриминговой репликации.
+    # mode 0600 — читает только владелец.
+    - name: "Подготовить pg_hba.conf"
+      ansible.builtin.template:
+        src: pg_hba.conf.j2
+        dest: "{{ pg_hba_conf }}"
+        owner: "{{ postgresql_user }}"
+        group: "{{ postgresql_group }}"
+        mode: "0600"
