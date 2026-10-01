@@ -1,0 +1,25 @@
+# Локальные подключения через Unix-сокет
+# peer — аутентификация по имени системного пользователя ОС
+# (для пользователя postgres это означает: вошёл как postgres → ты postgres)
+local all all peer
+
+# Подключения по IPv4 с localhost — без пароля
+# Нужно для Patroni REST API, health-check'ов и локальных утилит
+host all all 127.0.0.1/32 trust
+
+# То же для IPv6 localhost
+host all all ::1/128 trust
+
+# Правила для стриминговой репликации от других узлов кластера
+# Для каждого узла из cluster_nodes разрешаем подключение
+# пользователю replication_user (обычно "replicator") с паролем (md5)
+{% for node in cluster_nodes %}
+host replication {{ replication_user }} {{ node }}/32 scram-sha-256
+{% endfor %}
+
+# Правила клиентского доступа для узлов кластера
+# Все пользователи могут подключаться ко всем БД с узлов кластера
+# Аутентификация по паролю (md5)
+{% for node in cluster_nodes %}
+host all all {{ node }}/32 scram-sha-256
+{% endfor %}
