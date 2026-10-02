@@ -1,0 +1,5 @@
+patroni_venv_path: /opt/patroni/venv
+patroni_pip_packages: ["patroni[etcd]", "psycopg2-binary"]
+patroni_log_dir: /var/log/patroni
+patroni_user: postgres
+patroni_group: postgres
