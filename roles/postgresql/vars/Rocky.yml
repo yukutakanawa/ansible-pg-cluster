@@ -45,3 +45,9 @@ pg_contrib_package: postgresql16-contrib
 # В RHEL 9: python3-psycopg2 из BaseOS/AppStream
 # Для venv Patroni — ставится через pip: psycopg2-binary
 pg_python_package: python3-psycopg2
+
+# Путь к файлу pg_hba.conf
+# В отличие от Debian/Ubuntu, где конфиги лежат в /etc/postgresql/<ver>/main,
+# в RHEL/PGDG конфигурация размещается прямо внутри data-dir
+# (/var/lib/pgsql/<major>/data). Именно здесь Patroni ищет и правит pg_hba.conf.
+pg_hba_conf: /var/lib/pgsql/16/data/pg_hba.conf
