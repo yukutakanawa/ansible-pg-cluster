@@ -1,0 +1,46 @@
+# ============================================================
+# Переменные Patroni (Debian/Ubuntu)
+# ============================================================
+
+# Имя systemd-сервиса Patroni
+# Используется в задачах systemctl start/stop/enable/status patroni
+# Юнит-файл размещается как /etc/systemd/system/patroni.service
+patroni_service_name: patroni
+
+# Каталог конфигурации Patroni
+# Здесь размещается основной конфиг patroni.yml
+# Владелец: root:root или postgres:postgres, права 0640 (конфиг содержит пароли)
+patroni_config_dir: /etc/patroni
+
+# Основной конфиг Patroni в YAML-формате
+# Содержит: bootstrap.dcs (etcd endpoints), postgresql (бинарники, data-dir),
+# restapi (адрес REST API), и т.д.
+patroni_config_file: /etc/patroni/patroni.yml
+
+# Путь к бинарнику Patroni
+# /opt/patroni/venv/bin/patroni — установлен в отдельный venv
+# (обычно ставится через pip в изолированное окружение, а не системным пакетом)
+# В systemd-юните ExecStart= указывает на этот путь
+patroni_binary: /opt/patroni/venv/bin/patroni
+
+# ============================================================
+# Переменные PostgreSQL (Debian/Ubuntu)
+# ============================================================
+
+# Каталог данных кластера PostgreSQL 16
+# Здесь: base/, global/, pg_wal/, postgresql.conf, pg_hba.conf
+# При установке из PGDG создаётся кластер "main" в этом каталоге
+# Patroni будет использовать этот же путь для initdb и управления
+pg_data_dir: /var/lib/postgresql/16/main
+
+# Каталог конфигурации кластера (Debian-специфика)
+# Отдельно от data-dir: /etc/postgresql/<ver>/main
+# Здесь Debian-пакеты размещают postgresql.conf, pg_hba.conf, pg_ident.conf
+# В postgresql.conf через data_directory и config_file указывается на этот путь
+pg_config_dir: /etc/postgresql/16/main
+
+# Каталог с бинарниками PostgreSQL
+# В Debian/Ubuntu — /usr/lib/postgresql/<ver>/bin (не /usr/bin!)
+# Содержит: postgres, initdb, pg_ctl, pg_basebackup, psql
+# Patroni в конфиге указывает на этот путь в блоке postgresql.bin_dir
+pg_bin_dir: /usr/lib/postgresql/16/bin

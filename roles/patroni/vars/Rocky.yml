@@ -1,0 +1,45 @@
+# ============================================================
+# Переменные Patroni (RHEL-семейство: Rocky/Alma/RHEL 9)
+# ============================================================
+
+# Имя systemd-сервиса Patroni
+# Используется в задачах systemctl start/stop/enable/status patroni
+# Юнит-файл размещается как /etc/systemd/system/patroni.service
+patroni_service_name: patroni
+
+# Каталог конфигурации Patroni
+# Здесь размещается основной конфиг patroni.yml
+# Владелец: postgres:postgres, права 0640 (конфиг содержит пароли)
+patroni_config_dir: /etc/patroni
+
+# Основной конфиг Patroni в YAML-формате
+# Содержит: bootstrap.dcs (etcd endpoints), postgresql (бинарники, data-dir),
+# restapi (адрес REST API), и т.д.
+patroni_config_file: /etc/patroni/patroni.yml
+
+# Путь к бинарнику Patroni
+# /opt/patroni/venv/bin/patroni — установлен в отдельный venv
+# (ставится через pip в изолированное окружение, а не системным пакетом)
+# В systemd-юните ExecStart= указывает на этот путь
+patroni_binary: /opt/patroni/venv/bin/patroni
+
+# ============================================================
+# Переменные PostgreSQL (RHEL-семейство, PGDG-репозиторий)
+# ============================================================
+
+# Каталог данных кластера PostgreSQL 16
+# В RHEL/PGDG путь единый: /var/lib/pgsql/<major>/data
+# Здесь: base/, global/, pg_wal/, postgresql.conf, pg_hba.conf
+pg_data_dir: /var/lib/pgsql/16/data
+
+# Каталог конфигурации кластера
+# В RHEL/PGDG совпадает с data-dir (нет отдельного /etc/postgresql,
+# как в Debian/Ubuntu). postgresql.conf, pg_hba.conf, pg_ident.conf
+# лежат прямо в data/
+pg_config_dir: /var/lib/pgsql/16/data
+
+# Каталог с бинарниками PostgreSQL
+# В RHEL/PGDG: /usr/pgsql-<major>/bin
+# Содержит: postgres, initdb, pg_ctl, pg_basebackup, psql
+# Patroni в конфиге указывает на этот путь в блоке postgresql.bin_dir
+pg_bin_dir: /usr/pgsql-16/bin
