@@ -14,7 +14,8 @@
     # pg_package_name, pg_data_dir, pg_config_dir, pg_bin_dir и т.д.
     - name: "Загрузить переменные по ОС"
       ansible.builtin.include_vars:
-        file: "{{ ansible_facts['os_family'] }}.yml"
+        # Если os_family == 'RedHat', подставляем 'Rocky.yml', иначе исходное имя (например, Debian.yml)
+        file: "{{ 'Rocky' if ansible_facts['os_family'] == 'RedHat' else ansible_facts['os_family'] }}.yml"
       when: ansible_facts['os_family'] in ['Debian', 'RedHat']
 
     # На Debian/Ubuntu скрипт apt.postgresql.org.sh входит в пакет
@@ -29,18 +30,31 @@
     # Официальный скрипт PGDG: добавляет репозиторий в
     # /etc/apt/sources.list.d/pgdg.list и импортирует GPG-ключ.
     # creates — идемпотентность: если файл уже есть, задача пропускается.
-    - name: "Debian: запуск скрипта"
-      ansible.builtin.shell:
-        cmd: "/usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y"
-        creates: /etc/apt/sources.list.d/pgdg.list
-      when: ansible_facts['os_family'] == "Debian"
+    - name: Проверка, был ли репозиторий PostgreSQL добавлен ранее
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/apt/sources.list.d/pgdg.list
+        - /etc/apt/sources.list.d/pgdg.sources
+      register: pgdg_repo_files
+      when: ansible_facts['os_family'] == 'Debian'
 
-    # На RHEL/Rocky/Alma 9 ставим RPM-пакет репозитория PGDG прямо из URL
+    - name: Инициализация репозитория PostgreSQL через официальный скрипт
+      # /etc/apt/sources.list.d/pgdg.list или pgdg.sources и импортирует GPG-ключ.
+      # Идемпотентность: если один из файлов уже есть, задача пропускается.
+      ansible.builtin.command:
+        cmd: /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+      when:
+        - ansible_facts['os_family'] == 'Debian'
+        - pgdg_repo_files.results | selectattr('stat.exists', 'defined') | selectattr('stat.exists', 'equalto', true) | list | length == 0
+
+    # На RHEL/RedHat/Alma 9 ставим RPM-пакет репозитория PGDG прямо из URL
     # через dnf. После этого становятся доступны postgresql16-* пакеты.
     - name: "RedHat: Добавить официальный репозиторий PGDG (RPM)"
       ansible.builtin.dnf:
         name: "{{ pg_pgdg_repo_rpm }}"
         state: present
+        disable_gpg_check: true
       when: ansible_facts['os_family'] == "RedHat"
 
     # Установка сервера PostgreSQL, contrib-расширений и psycopg2
