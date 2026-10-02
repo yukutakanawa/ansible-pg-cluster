@@ -1,5 +1,34 @@
+# ============================================================
+# Переменные установки и запуска Patroni
+# ============================================================
+
+# Каталог виртуального окружения Python для Patroni
+# Patroni не ставится в системный Python — используется изолированный venv,
+# чтобы не конфликтовать с пакетами ОС и не зависеть от их версий
+# Внутри: bin/patroni, bin/python, bin/pip, lib/python3.x/site-packages/
 patroni_venv_path: /opt/patroni/venv
+
+# Список pip-пакетов для установки в venv
+# patroni[etcd] — сам Patroni с extras для работы с etcd (python-etcd)
+#   (extras также могут быть: patroni[consul], patroni[zookeeper], patroni[kubernetes])
+# psycopg2-binary — драйвер PostgreSQL в бинарной сборке
+#   (без компиляции, проще в установке, чем psycopg2 из исходников)
 patroni_pip_packages: ["patroni[etcd]", "psycopg2-binary"]
+
+# Каталог для логов Patroni
+# Если Patroni настроен писать логи в файл (а не в journald/stderr),
+# они будут складываться сюда
+# Владелец: patroni_user:patroni_group, права 0750
 patroni_log_dir: /var/log/patroni
+
+# Пользователь, от имени которого работает Patroni и PostgreSQL
+# В системе уже существует после установки пакета postgresql16-server
+# Patroni запускается от postgres — так удобнее, потому что:
+#   - data-dir принадлежит postgres
+#   - не нужны sudo-костыли для pg_ctl
 patroni_user: postgres
+
+# Группа Patroni
+# Обычно совпадает с группой postgres
+# Используется как владелец файлов конфигов, логов, юнит-файла
 patroni_group: postgres
