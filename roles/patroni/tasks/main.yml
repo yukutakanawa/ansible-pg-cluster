@@ -1,0 +1,28 @@
+---
+- name: Установка окружения Patroni
+  become: true
+  block:
+    - name: Загрузка переменных по ОС
+      ansible.builtin.include_vars:
+        file: "{{ 'Rocky' if ansible_facts['os_family'] == 'RedHat' else ansible_facts['os_family'] }}.yml"
+      when: ansible_facts['os_family'] in ['Debian', 'RedHat']
+
+    - name: Установка пакетов для venv
+      ansible.builtin.package:
+        name: "{{ venv_packages }}"
+        state: present
+
+    - name: Создание директории для Patroni
+      ansible.builtin.file:
+        path: "{{ patroni_venv_path }}"
+        state: directory
+        owner: "{{ patroni_user }}"
+        group: "{{ patroni_group }}"
+        mode: "0755"
+
+    - name: Создаем venv и устанавливаем pip-пакеты
+      ansible.builtin.pip:
+        name: "{{ patroni_pip_packages }}"
+        virtualenv: "{{ patroni_venv_path }}"
+        virtualenv_command: python3 -m venv
+        state: present
