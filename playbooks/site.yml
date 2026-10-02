@@ -3,3 +3,8 @@
   hosts: etcd
   roles:
     - etcd
+
+- name: Устновка PostgreSQL
+  hosts: postgresql
+  roles:
+    - postgresql
