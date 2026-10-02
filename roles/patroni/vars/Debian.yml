@@ -23,6 +23,12 @@ patroni_config_file: /etc/patroni/patroni.yml
 # В systemd-юните ExecStart= указывает на этот путь
 patroni_binary: /opt/patroni/venv/bin/patroni
 
+# Системные пакеты для подготовки venv на Debian/Ubuntu.
+# python3-venv — модуль venv вынесен в отдельный пакет
+#   (без него python3 -m venv упадёт с ошибкой).
+# python3-pip — менеджер pip для установки пакетов внутрь venv.
+venv_packages: ["python3-venv", "python3-pip"]
+
 # ============================================================
 # Переменные PostgreSQL (Debian/Ubuntu)
 # ============================================================

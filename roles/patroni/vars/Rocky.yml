@@ -23,6 +23,12 @@ patroni_config_file: /etc/patroni/patroni.yml
 # В systemd-юните ExecStart= указывает на этот путь
 patroni_binary: /opt/patroni/venv/bin/patroni
 
+# Системные пакеты для подготовки venv на Rocky Linux 9.
+# python3-pip — менеджер pip для системного Python 3,
+# нужен для создания venv и установки пакетов внутрь него.
+# Модуль venv в RHEL уже входит в python3 — отдельный пакет не нужен.
+venv_packages: ["python3-pip"]
+
 # ============================================================
 # Переменные PostgreSQL (RHEL-семейство, PGDG-репозиторий)
 # ============================================================
