@@ -50,6 +50,7 @@ bootstrap:
 
   # Параметры DCS-кластера.
   dcs:
+    post_bootstrap: /etc/patroni/post_bootstrap.sh
     # TTL лидерского ключа (сек).
     # Если лидер не обновляет ключ дольше TTL — начинаются выборы.
     ttl: {{ patroni_ttl }}

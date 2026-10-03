@@ -1,0 +1,6 @@
+#!/bin/bash
+set -e
+psql -U postgres -d postgres <<EOF
+CREATE ROLE replicator WITH REPLICATION LOGIN PASSWORD '{{ replication_password }}';
+CREATE ROLE admin WITH SUPERUSER CREATEDB LOGIN PASSWORD '{{ superuser_password }}';
+EOF
