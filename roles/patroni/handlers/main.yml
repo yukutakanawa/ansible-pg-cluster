@@ -1,0 +1,27 @@
+# Обработчики (handlers) роли Patroni.
+# Вызываются через notify из задач при изменении конфигов/юнитов.
+# Порядок выполнения — порядок ОБЪЯВЛЕНИЯ здесь,
+# а не порядок notify в задачах.
+#
+# ВАЖНО: Reload systemd объявлен ПЕРЕД Restart patroni,
+# чтобы systemd успел подхватить обновлённый unit-файл
+# до перезапуска сервиса.
+
+# Перечитать конфигурацию systemd.
+# Нужно после изменения/создания unit-файлов в /etc/systemd/system/.
+# Без этого systemd продолжит использовать старую версию юнита.
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes
+
+# Перезапустить сервис Patroni.
+# state: restarted — остановить и запустить заново.
+# Patroni при перезапуске:
+#   - перечитывает patroni.yml
+#   - переподключается к DCS (etcd)
+#   - НЕ трогает процесс PostgreSQL (если он уже запущен)
+#     — то есть PostgreSQL продолжает работать, лидерство сохраняется
+- name: Restart patroni
+  systemd:
+    name: "{{ patroni_service_name }}"
+    state: restarted
