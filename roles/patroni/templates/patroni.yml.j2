@@ -1,0 +1,76 @@
+scope: "{{ patroni_scope }}"
+namespace: "{{ patroni_namespace }}"
+name: "{{ node_name }}"
+
+restapi:
+  listen: "{{ patroni_restapi_ip }}:{{ patroni_restapi_port }}"
+  connect_address: "{{ patroni_restapi_ip }}:{{ patroni_restapi_port }}"
+
+etcd3:
+  hosts:
+{% for node in etcd_nodes %}
+    - "{{ node }}"
+{% endfor %}
+  protocol: http
+
+bootstrap:
+  dcs:
+    ttl: {{ patroni_ttl }}
+    loop_wait: {{ patroni_loop_wait }}
+    retry_timeout: "{{ patroni_retry_timeout }}"
+    maximum_lag_on_failover: "{{ patroni_maximum_lag_on_failover }}"
+    synchronous_mode: "{{ patroni_synchronous_mode }}"
+
+  pg_hba:
+    # Локальные подключения через Unix-сокет
+    - local all all peer
+    # Подключения по IPv4 с localhost — без пароля
+    - host all all 127.0.0.1/32 trust
+    # То же для IPv6 localhost
+    - host all all ::1/128 trust
+    # Правила для стриминговой репликации от других узлов кластера
+    {% for node in cluster_nodes %}
+      - "host replication {{ replication_user }} {{ node }}/32 scram-sha-256"
+    {% endfor %}
+    # Правила клиентского доступа для узлов кластера
+    {% for node in cluster_nodes %}
+      - "host all all {{ node }}/32 scram-sha-256"
+    {% endfor %}
+
+  postgresql:
+    use_pg_rewind: true
+    use_slots: true
+
+    parameters:
+      wal_level: "{{ wal_level }}"
+      max_wal_senders: "{{ max_wal_senders }}"
+      max_replication_slots: "{{ max_replication_slots }}"
+      hot_standby: "{{ hot_standby }}"
+      wal_keep_size: "{{ wal_keep_size }}"
+      listen_addresses: "{{ listen_addresses }}"
+      password_encryption: "{{ password_encryption }}"
+      unix_socket_directories: "{{ unix_socket_directories }}"
+
+  users:
+    admin:
+      password: "{{ superuser_password }}"
+      options: [superuser, createdb]
+    replication:
+      password: "{{ replication_password }}"
+      options: [replication]
+
+postgresql:
+  data_dir: "{{ pg_data_dir }}"
+  config_dir: "{{ pg_config_dir }}"
+  bin_dir: "{{ pg_bin_dir }}"
+  listen: "{{ patroni_restapi_ip }}:{{ postgresql_port }}"
+  connect_address: "{{ patroni_restapi_ip }}:{{ postgresql_port }}"
+  authentication:
+    replication:
+      username: "{{ replication_user }}"
+      password: "{{ replication_password }}"
+    superuser: 
+      username: "{{ superuser_name }}"
+      password: "{{ superuser_password }}"
+  parameters:
+    unix_socket_directories: "{{ unix_socket_directories }}"
