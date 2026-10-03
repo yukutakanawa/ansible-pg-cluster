@@ -1,17 +1,27 @@
 ---
+# Плейбук: установка и настройка Patroni
+# Ставит venv, кладёт конфиг и systemd-юнит, запускает сервис.
 - name: Установка окружения Patroni
   become: true
   block:
+    # Подгрузка переменных по ОС.
+    # Для RedHat берётся файл Rocky.yml (пути RHEL-семейства),
+    # для Debian — Debian.yml.
     - name: Загрузка переменных по ОС
       ansible.builtin.include_vars:
         file: "{{ 'Rocky' if ansible_facts['os_family'] == 'RedHat' else ansible_facts['os_family'] }}.yml"
       when: ansible_facts['os_family'] in ['Debian', 'RedHat']
 
+    # Системные пакеты для работы venv:
+    # python3-venv + python3-pip на Debian, python3-pip на Rocky.
+    # Без них python3 -m venv и pip install не заработают.
     - name: Установка пакетов для venv
       ansible.builtin.package:
         name: "{{ venv_packages }}"
         state: present
 
+    # Каталог под venv Patroni (/opt/patroni/venv).
+    # Владелец — postgres, чтобы процесс мог читать/исполнять файлы venv.
     - name: Создание директории для Patroni
       ansible.builtin.file:
         path: "{{ patroni_venv_path }}"
@@ -20,9 +30,69 @@
         group: "{{ patroni_group }}"
         mode: "0755"
 
+    # Создание venv и установка patroni[etcd] + psycopg2-binary.
+    # virtualenv_command — явно python3 -m venv, чтобы модуль pip
+    # не пытался использовать virtualenv из pip (может отсутствовать).
     - name: Создаем venv и устанавливаем pip-пакеты
       ansible.builtin.pip:
         name: "{{ patroni_pip_packages }}"
         virtualenv: "{{ patroni_venv_path }}"
         virtualenv_command: python3 -m venv
         state: present
+
+    # Каталог конфигов /etc/patroni.
+    # Владелец root, группа postgres — конфиг содержит пароли,
+    # читать его должен только процесс Patroni.
+    - name: Создание конфига
+      ansible.builtin.file:
+        path: "{{ patroni_config_dir }}"
+        state: directory
+        owner: root
+        group: "{{ patroni_group }}"
+        mode: "0750"
+
+    # Каталог логов /var/log/patroni.
+    # Нужен, если в patroni.yml указан log.dir (файловое логирование).
+    - name: Создание файлов с логами
+      ansible.builtin.file:
+        path: "{{ patroni_log_dir }}"
+        state: directory
+        owner: root
+        group: "{{ patroni_group }}"
+        mode: "0750"
+
+    # Рендер основного конфига Patroni (DCS, postgresql, restapi, bootstrap).
+    # mode 0640 — файл содержит пароли superuser/replication.
+    # notify Restart patroni — перезапуск при изменении конфига.
+    - name: Сгенерировать конфиг patroni.yml
+      ansible.builtin.template:
+        src: patroni.yml.j2
+        dest: "{{ patroni_config_file }}"
+        owner: root
+        group: "{{ patroni_group }}"
+        mode: "0640"
+      notify:
+        - Restart patroni
+
+    # Systemd-юнит Patroni.
+    # Notify: сначала Reload systemd (чтобы systemd увидел обновлённый unit),
+    # затем Restart patroni. Порядок выполнения задаётся в handlers/main.yml.
+    - name: Сгенерировать systemd-юнит patroni.service
+      ansible.builtin.template:
+        src: patroni.service.j2
+        dest: /etc/systemd/system/patroni.service
+        owner: root
+        mode: "0644"
+      notify:
+        - Restart patroni
+        - Reload systemd
+
+    # Запуск и включение в автозагрузку.
+    # daemon-reload на случай, если unit-файл только что появился,
+    # а handler Reload systemd ещё не отработал.
+    - name: Запуск patroni.service
+      ansible.builtin.systemd:
+        name: "{{ patroni_service_name }}"
+        state: started
+        enabled: yes
+        daemon-reload: yes
