@@ -36,9 +36,9 @@ etcd3:
     # Список endpoints etcd-кластера (по одному на строку).
     # Все узлы Patroni подключаются ко всем etcd-нодам — так обеспечивается
     # отказоустойчивость при падении одного из etcd.
-    {% for node in etcd_nodes %}
+{% for node in etcd_nodes %}
     - "{{ node }}"
-    {% endfor %}
+{% endfor %}
   # protocol — http или https (для TLS-кластеров etcd используется https).
   protocol: http
 
@@ -79,13 +79,13 @@ bootstrap:
     # localhost IPv6 — trust.
     - host all all ::1/128 trust
     # Стриминговая репликация от узлов кластера — scram-sha-256.
-    {% for node in cluster_nodes %}
-      - "host replication {{ replication_user }} {{ node }}/32 scram-sha-256"
-    {% endfor %}
+{% for node in cluster_nodes %}
+    - "host replication {{ replication_user }} {{ node }}/32 scram-sha-256"
+{% endfor %}
     # Клиентский доступ с узлов кластера — scram-sha-256.
-    {% for node in cluster_nodes %}
-      - "host all all {{ node }}/32 scram-sha-256"
-    {% endfor %}
+{% for node in cluster_nodes %}
+    - "host all all {{ node }}/32 scram-sha-256"
+{% endfor %}
 
   # Настройки PostgreSQL, применяемые при bootstrap.
   postgresql:
@@ -118,7 +118,7 @@ bootstrap:
   users:
     # Суперпользователь кластера (обычно "postgres").
     admin:
-      password: "{{ superuser_password }}"
+      password: "CHANGE_ME"
       options: [superuser, createdb]
     # Пользователь для репликации (обычно "replicator").
     replication:
@@ -150,7 +150,7 @@ postgresql:
     # Суперпользователь для админ-операций (создание расширений, слотов).
     superuser:
       username: "{{ superuser_name }}"
-      password: "{{ superuser_password }}"
+      password: "CHANGE_ME"
 
   # Параметры, передаваемые в postgresql.conf напрямую Patroni
   # (в обход DCS). Используются для локальных настроек узла.
