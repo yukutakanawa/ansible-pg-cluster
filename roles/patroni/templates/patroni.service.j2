@@ -1,0 +1,40 @@
+[Unit]
+# Описание сервиса — отображается в systemctl status и journalctl.
+Description=Сервис patroni
+
+# Запускать после поднятия сети.
+# Patroni подключается к etcd (DCS) и слушает REST API — сеть должна быть готова.
+After=network.target
+
+
+[Service]
+# Type=simple — systemd считает сервис запущенным сразу после exec().
+# Patroni не использует sd_notify, поэтому Type=notify не подходит.
+# Type=exec — тоже вариант, но simple здесь работает корректно.
+Type=simple
+
+# Пользователь и группа, от имени которых работает Patroni.
+# postgres — потому что:
+#   - data-dir и бинарники PostgreSQL принадлежат postgres
+#   - Patroni запускает pg_ctl/initdb/postgres без sudo
+User={{ patroni_user }}
+Group={{ patroni_group }}
+
+# Команда запуска: бинарник из venv + путь к конфигу.
+# venv/bin/patroni — установлен pip'ом в изолированное окружение.
+# {{ patroni_config_file }} — /etc/patroni/patroni.yml.
+ExecStart={{ patroni_venv_path }}/bin/patroni {{ patroni_config_file }}
+
+# Перезапуск только при аварийном завершении (не при чистом exit 0).
+# Patroni обычно не завершается сам — это признак ошибки конфига
+# или потери связи с DCS.
+Restart=on-failure
+
+# Задержка перед перезапуском — 5 секунд.
+# Даёт время etcd-кластеру заметить пропажу узла и избежать flapping.
+RestartSec=5
+
+
+[Install]
+# Включать сервис при старте системы (multi-user.target = обычная загрузка).
+WantedBy=multi-user.target
