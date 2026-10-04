@@ -1,3 +1,4 @@
+---
 # Обработчики (handlers) роли Patroni.
 # Вызываются через notify из задач при изменении конфигов/юнитов.
 # Порядок выполнения — порядок ОБЪЯВЛЕНИЯ здесь,
@@ -11,8 +12,8 @@
 # Нужно после изменения/создания unit-файлов в /etc/systemd/system/.
 # Без этого systemd продолжит использовать старую версию юнита.
 - name: Reload systemd
-  systemd:
-    daemon_reload: yes
+  ansible.builtin.systemd:
+    daemon_reload: true
 
 # Перезапустить сервис Patroni.
 # state: restarted — остановить и запустить заново.
@@ -22,6 +23,6 @@
 #   - НЕ трогает процесс PostgreSQL (если он уже запущен)
 #     — то есть PostgreSQL продолжает работать, лидерство сохраняется
 - name: Restart patroni
-  systemd:
+  ansible.builtin.systemd:
     name: "{{ patroni_service_name }}"
     state: restarted

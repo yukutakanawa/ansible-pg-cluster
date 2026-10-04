@@ -21,6 +21,7 @@
   hosts: etcd
   roles:
     - etcd
+  tags: etcd_setup
 
 # ------------------------------------------------------------
 # 2. Установка PostgreSQL (без запуска сервиса)
@@ -33,6 +34,7 @@
   hosts: postgresql
   roles:
     - postgresql
+  tags: db_setup
 
 # ------------------------------------------------------------
 # 3. Установка Patroni
@@ -45,3 +47,4 @@
   hosts: patroni
   roles:
     - patroni
+  tags: patroni_setup

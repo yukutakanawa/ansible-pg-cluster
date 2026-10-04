@@ -1,3 +1,4 @@
+---
 # === Версия etcd ===
 # Определяет, какую версию etcd скачивать и устанавливать
 # Рекомендуется использовать стабильные релизы 3.5.x (LTS-ветка)
@@ -9,13 +10,13 @@ etcd_version: 3.5.15
 etcd_arch: amd64
 
 # === URL для скачивания архива etcd ===
-# Формируется из версии и архитектуры: 
+# Формируется из версии и архитектуры:
 # https://github.com/etcd-io/etcd/releases/download/v3.5.15/etcd-v3.5.15-linux-amd64.tar.gz
 # Внутри архива: etcd, etcdctl, etcdutl (бинарники) и README
 etcd_download_url: https://github.com/etcd-io/etcd/releases/download/v{{ etcd_version }}/etcd-v{{ etcd_version }}-linux-{{ etcd_arch }}.tar.gz
 
 # === Токен кластера etcd ===
-# Уникальный идентификатор кластера — защищает от случайного "слияния" 
+# Уникальный идентификатор кластера — защищает от случайного "слияния"
 # узлов из разных кластеров при неправильной конфигурации
 # ВСЕ узлы одного кластера должны иметь ОДИНАКОВЫЙ token
 etcd_cluster_token: pg-cluster-etcd-token
@@ -23,7 +24,6 @@ etcd_cluster_token: pg-cluster-etcd-token
 # === Начальное состояние кластера ===
 # new    — создаём новый кластер (первый запуск всех узлов)
 # existing — подключаемся к уже работающему кластеру (добавление узла, восстановление)
-# ⚠️ После успешного bootstrap менять на existing, иначе etcd пересоздаст кластер
 etcd_initial_cluster_state: new
 
 # === Уровень логирования etcd ===

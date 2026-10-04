@@ -1,3 +1,4 @@
+---
 galaxy_info:
   author: Nick Solodilov
   description: Установка PostgreSQL для кластера Patroni без запуска сервиса

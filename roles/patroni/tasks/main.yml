@@ -14,14 +14,12 @@
 
     # Системные пакеты для работы venv:
     # python3-venv + python3-pip на Debian, python3-pip на Rocky.
-    # Без них python3 -m venv и pip install не заработают.
     - name: Установка пакетов для venv
       ansible.builtin.package:
         name: "{{ venv_packages }}"
         state: present
 
     # Каталог под venv Patroni (/opt/patroni/venv).
-    # Владелец — postgres, чтобы процесс мог читать/исполнять файлы venv.
     - name: Создание директории для Patroni
       ansible.builtin.file:
         path: "{{ patroni_venv_path }}"
@@ -31,8 +29,6 @@
         mode: "0755"
 
     # Создание venv и установка patroni[etcd] + psycopg2-binary.
-    # virtualenv_command — явно python3 -m venv, чтобы модуль pip
-    # не пытался использовать virtualenv из pip (может отсутствовать).
     - name: Создаем venv и устанавливаем pip-пакеты
       ansible.builtin.pip:
         name: "{{ patroni_pip_packages }}"
@@ -41,8 +37,6 @@
         state: present
 
     # Каталог конфигов /etc/patroni.
-    # Владелец root, группа postgres — конфиг содержит пароли,
-    # читать его должен только процесс Patroni.
     - name: Создание конфига
       ansible.builtin.file:
         path: "{{ patroni_config_dir }}"
@@ -52,7 +46,6 @@
         mode: "0750"
 
     # Каталог логов /var/log/patroni.
-    # Нужен, если в patroni.yml указан log.dir (файловое логирование).
     - name: Создание файлов с логами
       ansible.builtin.file:
         path: "{{ patroni_log_dir }}"
@@ -61,9 +54,71 @@
         group: "{{ patroni_group }}"
         mode: "0750"
 
-    # Рендер основного конфига Patroni (DCS, postgresql, restapi, bootstrap).
-    # mode 0640 — файл содержит пароли superuser/replication.
-    # notify Restart patroni — перезапуск при изменении конфига.
+    - name: Создать post_bootstrap.sh
+      ansible.builtin.template:
+        src: post_bootstrap.sh.j2
+        dest: /etc/patroni/post_bootstrap.sh
+        owner: postgres
+        group: postgres
+        mode: "0700"
+
+    - name: Создать conf.d (для RHEL)
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}/conf.d"
+        state: directory
+        owner: "{{ postgresql_user }}"
+        group: "{{ postgresql_group }}"
+        mode: "0700"
+      when: ansible_os_family == "RedHat"
+
+    # Отключение SELinux (RHEL) — иначе SELinux блокирует доступ
+    # к SSL-ключу, даже если права Linux корректные.
+    - name: Отключить SELinux (RHEL)
+      ansible.posix.selinux:
+        state: permissive
+        policy: targeted
+      when: ansible_os_family == "RedHat"
+      failed_when: false
+
+    # Каталог /etc/ssl/private для self-signed сертификата.
+    # Владелец root, группа postgres, 0750 — чтобы postgres мог зайти
+    # в каталог и прочитать ключ, но никто другой — нет.
+    - name: Создать /etc/ssl/private (RHEL)
+      ansible.builtin.file:
+        path: /etc/ssl/private
+        state: directory
+        owner: root
+        group: postgres
+        mode: "0750"
+      when: ansible_os_family == "RedHat"
+
+    # Self-signed сертификат для PostgreSQL.
+    # PostgreSQL в Debian-пакете использует ssl-cert-snakeoil;
+    # на RHEL его нет — создаём сами.
+    - name: Создать SSL-сертификат для PostgreSQL (RHEL)
+      ansible.builtin.command:
+        cmd: >
+          openssl req -new -x509 -days 3650 -nodes
+          -out /etc/ssl/certs/ssl-cert-snakeoil.pem
+          -keyout /etc/ssl/private/ssl-cert-snakeoil.key
+          -subj "/CN={{ ansible_hostname }}"
+        creates: /etc/ssl/certs/ssl-cert-snakeoil.pem
+      when: ansible_os_family == "RedHat"
+
+    # Права на SSL-файлы: ключ принадлежит postgres (0600),
+    # сертификат — root (0644).
+    - name: Права на SSL-файлы (RHEL)
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "/etc/ssl/certs/ssl-cert-snakeoil.pem", owner: "root", group: "root", mode: "0644" }
+        - { path: "/etc/ssl/private/ssl-cert-snakeoil.key", owner: "postgres", group: "postgres", mode: "0600" }
+      when: ansible_os_family == "RedHat"
+
+    # Рендер основного конфига Patroni.
     - name: Сгенерировать конфиг patroni.yml
       ansible.builtin.template:
         src: patroni.yml.j2
@@ -75,8 +130,6 @@
         - Restart patroni
 
     # Systemd-юнит Patroni.
-    # Notify: сначала Reload systemd (чтобы systemd увидел обновлённый unit),
-    # затем Restart patroni. Порядок выполнения задаётся в handlers/main.yml.
     - name: Сгенерировать systemd-юнит patroni.service
       ansible.builtin.template:
         src: patroni.service.j2
@@ -88,11 +141,9 @@
         - Reload systemd
 
     # Запуск и включение в автозагрузку.
-    # daemon-reload на случай, если unit-файл только что появился,
-    # а handler Reload systemd ещё не отработал.
     - name: Запуск patroni.service
       ansible.builtin.systemd:
         name: "{{ patroni_service_name }}"
         state: started
-        enabled: yes
-        daemon-reload: yes
+        enabled: true
+        daemon-reload: true

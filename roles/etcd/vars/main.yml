@@ -1,3 +1,4 @@
+---
 # === Имя systemd-сервиса etcd ===
 # Используется в задачах: systemctl start/stop/enable/status etcd
 etcd_systemd_service: etcd

@@ -67,7 +67,7 @@
           - "{{ pg_contrib_package }}"
           - "{{ pg_python_package }}"
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "Debian"
 
     # То же самое для RHEL-семейства.
@@ -79,7 +79,7 @@
           - "{{ pg_contrib_package }}"
           - "{{ pg_python_package }}"
         state: present
-        update_cache: yes
+        update_cache: true
       when: ansible_facts['os_family'] == "RedHat"
 
     # Останавливаем и убираем из автозапуска системный сервис PostgreSQL.

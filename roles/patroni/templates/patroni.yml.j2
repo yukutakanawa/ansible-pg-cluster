@@ -1,159 +1,92 @@
 # ============================================================
 # Шаблон конфигурации Patroni (patroni.yml.j2)
 # ============================================================
-# Рендерится Ansible в /etc/patroni/patroni.yml.
-# Определяет: DCS (etcd3), REST API, bootstrap-настройки PostgreSQL,
-# параметры процесса postgres и аутентификацию.
-
-# Имя кластера Patroni (scope).
-# Все узлы с одинаковым scope образуют один кластер.
-# Используется как префикс ключей в etcd (/service/<scope>/...).
 scope: "{{ patroni_scope }}"
-
-# Пространство имён внутри DCS (etcd).
-# Позволяет запускать несколько кластеров в одном etcd.
-# Если не нужно — можно убрать (по умолчанию /service).
 namespace: "{{ patroni_namespace }}"
-
-# Имя текущего узла в кластере.
-# Должно быть уникально; при совпадении имён Patroni не сможет различить узлы.
-# Обычно совпадает с hostname.
 name: "{{ node_name }}"
 
-
-# REST API Patroni.
-# Через него: health-check, switchover, failover, /metrics для Prometheus,
-# синхронизация с etcd и обмен состоянием между узлами.
 restapi:
   listen: "{{ patroni_restapi_ip }}:{{ patroni_restapi_port }}"
   connect_address: "{{ patroni_restapi_ip }}:{{ patroni_restapi_port }}"
 
-
-# DCS (Distributed Configuration Store) — etcd v3 API.
-# etcd3 — современный API (etcd v3), в отличие от устаревшего etcd (v2).
 etcd3:
   hosts:
-    # Список endpoints etcd-кластера (по одному на строку).
-    # Все узлы Patroni подключаются ко всем etcd-нодам — так обеспечивается
-    # отказоустойчивость при падении одного из etcd.
 {% for node in etcd_nodes %}
     - "{{ node }}"
 {% endfor %}
-  # protocol — http или https (для TLS-кластеров etcd используется https).
   protocol: http
 
-
-# Настройки, применяемые ТОЛЬКО при bootstrap нового кластера.
-# После первой инициализации эти параметры игнорируются —
-# их изменение делается через patronictl edit-config.
 bootstrap:
+  post_bootstrap: /etc/patroni/post_bootstrap.sh
 
-  # Параметры DCS-кластера.
   dcs:
-    post_bootstrap: /etc/patroni/post_bootstrap.sh
-    # TTL лидерского ключа (сек).
-    # Если лидер не обновляет ключ дольше TTL — начинаются выборы.
     ttl: {{ patroni_ttl }}
-
-    # Интервал опроса DCS (сек) — как часто Patroni проверяет состояние.
     loop_wait: {{ patroni_loop_wait }}
-
-    # Таймаут на retry операций с DCS (сек).
     retry_timeout: "{{ patroni_retry_timeout }}"
-
-    # Максимальное отставание реплики (байт) для участия в failover.
-    # Реплики с большим лагом не могут стать новым лидером.
     maximum_lag_on_failover: "{{ patroni_maximum_lag_on_failover }}"
-
-    # Синхронный режим репликации.
-    # true — лидер ждёт подтверждения от sync-реплики (гарантия нулевой потери).
-    # false — асинхронная репликация (выше доступность, но есть риск потери).
     synchronous_mode: "{{ patroni_synchronous_mode }}"
 
-  # Правила pg_hba.conf, применяемые при bootstrap.
-  # После bootstrap Patroni при каждом изменении DCS перезаписывает pg_hba.conf.
+    # pg_hba в DCS — применяется на ВСЕХ нодах,
+    # включая реплики (не только при bootstrap).
+    postgresql:
+      pg_hba:
+        - local all all peer
+        - host all all 127.0.0.1/32 trust
+        - host all all ::1/128 trust
+{% for node in cluster_nodes %}
+        - "host replication {{ replication_user }} {{ node }}/32 scram-sha-256"
+{% endfor %}
+{% for node in cluster_nodes %}
+        - "host all all {{ node }}/32 scram-sha-256"
+{% endfor %}
+
+  # pg_hba при bootstrap (для initdb лидера).
   pg_hba:
-    # Локальные подключения через Unix-сокет — peer-аутентификация.
     - local all all peer
-    # localhost IPv4 — trust (без пароля).
     - host all all 127.0.0.1/32 trust
-    # localhost IPv6 — trust.
     - host all all ::1/128 trust
-    # Стриминговая репликация от узлов кластера — scram-sha-256.
 {% for node in cluster_nodes %}
     - "host replication {{ replication_user }} {{ node }}/32 scram-sha-256"
 {% endfor %}
-    # Клиентский доступ с узлов кластера — scram-sha-256.
 {% for node in cluster_nodes %}
     - "host all all {{ node }}/32 scram-sha-256"
 {% endfor %}
 
-  # Настройки PostgreSQL, применяемые при bootstrap.
   postgresql:
-    # pg_rewind — «догон» старого лидера после failover без пересоздания data-dir.
     use_pg_rewind: true
-    # Слоты репликации — сохраняют WAL для реплик, защита от потери сегментов.
     use_slots: true
-
-    # Параметры postgresql.conf, применяемые только при bootstrap.
-    # После — управляются через DCS (patronictl edit-config).
     parameters:
-      # Уровень WAL для репликации: replica | logical (для CDC).
       wal_level: "{{ wal_level }}"
-      # Максимум процессов WAL sender (по числу реплик + запас).
       max_wal_senders: "{{ max_wal_senders }}"
-      # Максимум слотов репликации.
       max_replication_slots: "{{ max_replication_slots }}"
-      # Разрешить read-only запросы на репликах.
       hot_standby: "{{ hot_standby }}"
-      # Сколько WAL хранить для отставших реплик (вместо wal_keep_segments в 13+).
       wal_keep_size: "{{ wal_keep_size }}"
-      # Какие адреса слушает postgres. Для Patroni обычно "*" или конкретный IP.
       listen_addresses: "{{ listen_addresses }}"
-      # Алгоритм хеширования паролей: scram-sha-256 (рекомендуется) | md5.
       password_encryption: "{{ password_encryption }}"
-      # Каталоги Unix-сокетов (для локальных подключений).
       unix_socket_directories: "{{ unix_socket_directories }}"
 
-  # Пользователи, создаваемые при bootstrap.
   users:
-    # Суперпользователь кластера (обычно "postgres").
     admin:
-      password: "CHANGE_ME"
+      password: "{{ superuser_password }}"
       options: [superuser, createdb]
-    # Пользователь для репликации (обычно "replicator").
     replication:
       password: "{{ replication_password }}"
       options: [replication]
 
-
-# Параметры процесса PostgreSQL, которыми управляет Patroni.
-# Здесь указываются пути и адрес, а не параметры postgresql.conf
-# (те — в bootstrap.postgresql.parameters или в DCS).
 postgresql:
-  # Каталог данных.
   data_dir: "{{ pg_data_dir }}"
-  # Каталог конфигов (Debian: /etc/postgresql/16/main; RHEL: совпадает с data_dir).
   config_dir: "{{ pg_config_dir }}"
-  # Каталог бинарников (initdb, pg_ctl, postgres, pg_basebackup).
   bin_dir: "{{ pg_bin_dir }}"
-  # Адрес, на котором postgres принимает подключения.
   listen: "{{ patroni_restapi_ip }}:{{ postgresql_port }}"
-  # Адрес, который анонсируется клиентам и другим узлам.
   connect_address: "{{ patroni_restapi_ip }}:{{ postgresql_port }}"
 
-  # Учётные данные для служебных операций Patroni.
   authentication:
-    # Пользователь для стриминговой репликации (pg_basebackup, walreceiver).
     replication:
       username: "{{ replication_user }}"
       password: "{{ replication_password }}"
-    # Суперпользователь для админ-операций (создание расширений, слотов).
     superuser:
       username: "{{ superuser_name }}"
-      password: "CHANGE_ME"
+      password: "{{ superuser_password }}"
 
-  # Параметры, передаваемые в postgresql.conf напрямую Patroni
-  # (в обход DCS). Используются для локальных настроек узла.
   parameters:
     unix_socket_directories: "{{ unix_socket_directories }}"
